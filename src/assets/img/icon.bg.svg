@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+	<defs>
+		<linearGradient id="linkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#94a3b8" />
+			<stop offset="100%" stop-color="#475569" />
+		</linearGradient>
+
+		<linearGradient id="arrowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+			<stop offset="0%" stop-color="#38bdf8" />
+			<stop offset="50%" stop-color="#3b82f6" />
+			<stop offset="100%" stop-color="#6366f1" />
+		</linearGradient>
+	</defs>
+
+	<rect fill="#202124" rx="28" height="256" width="256"/>
+
+	<g transform="translate(128, 128) rotate(-45) translate(-128, -128)">
+		<path d="M 100 156 L 76 156 A 28 28 0 0 1 76 100 L 100 100" fill="none" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+
+		<path d="M 156 156 L 180 156 A 28 28 0 0 0 180 100 L 156 100" fill="none" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+
+		<line x1="86" y1="100" x2="112" y2="100" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+		<line x1="144" y1="100" x2="170" y2="100" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+
+		<line x1="86" y1="156" x2="112" y2="156" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+		<line x1="144" y1="156" x2="170" y2="156" stroke="url(#linkGrad)" stroke-width="24" stroke-linecap="round" />
+	</g>
+
+	<path d="M 128 24 L 128 228 M 72 172 L 128 228 L 184 172" fill="none" stroke="url(#arrowGrad)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

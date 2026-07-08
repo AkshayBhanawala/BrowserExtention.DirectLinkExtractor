@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Direct Link Extractor</title>
+		<link rel="stylesheet" href="popup.css" />
+	</head>
+	<body>
+		<div class="app-container">
+			<header>
+				<h2>Direct Link Extractor</h2>
+				<div class="nav-tabs">
+					<button id="tab-extractor" class="active">Extractor</button>
+					<button id="tab-settings">Settings</button>
+				</div>
+			</header>
+
+			<main>
+				<section id="panel-extractor" class="tab-panel active-panel">
+					<div id="direct-page-container" class="hidden" style="width: 100%; margin-top: 10px">
+						<button
+							id="btn-process-current"
+							class="primary-btn"
+							style="background-color: var(--accent); padding: 14px; font-size: 1.1rem; width: 100%"
+						>
+							GET DIRECT LINK
+						</button>
+					</div>
+
+					<div id="standard-extractor-container" style="display: flex; flex-direction: column; gap: 14px; width: 100%">
+						<div class="control-row" style="gap: 8px">
+							<button id="btn-scrape">Scrape Page Links</button>
+							<button id="btn-clear" class="secondary-btn">Clear Links</button>
+						</div>
+
+						<div class="setting-item" style="margin-top: 4px; margin-bottom: 4px">
+							<label class="switch-label">
+								<input type="checkbox" id="cfg-append-scrape" /> Append links when scraping
+							</label>
+						</div>
+
+						<div class="field-group">
+							<label for="input-links">Input URLs (One per line):</label>
+							<textarea
+								id="input-links"
+								placeholder="Paste link collection here...&#10;https://fuckingfast.co/...&#10;https://datanodes.to/..."
+							></textarea>
+						</div>
+
+						<div class="control-row">
+							<button id="btn-process" class="primary-btn">Process Collected Links</button>
+						</div>
+
+						<div id="processing-status" class="status-msg hidden">Processing links...</div>
+
+						<div
+							id="output-container"
+							class="hidden"
+							style="display: flex; flex-direction: column; gap: 14px; justify-content: center"
+						>
+							<div class="field-group">
+								<label for="output-links">Generated Direct Links:</label>
+								<textarea id="output-links" readonly placeholder="Output links will pop up here..."></textarea>
+							</div>
+
+							<button id="btn-copy" class="secondary-btn">Copy Output Links</button>
+						</div>
+					</div>
+				</section>
+
+				<section id="panel-settings" class="tab-panel">
+					<div class="setting-item">
+						<label class="switch-label">
+							<input type="checkbox" id="cfg-auto-direct" /> Auto-process target hosting layouts
+						</label>
+					</div>
+					<div class="setting-item">
+						<label class="switch-label">
+							<input type="checkbox" id="cfg-dark-theme" /> Enable Dark Theme Layouts
+						</label>
+					</div>
+
+					<hr />
+
+					<div class="field-group">
+						<label for="cfg-raw-json">Raw Engine Configuration (JSON Editor):</label>
+						<textarea id="cfg-raw-json" class="json-box"></textarea>
+					</div>
+
+					<div class="backup-row">
+						<button id="btn-export">Export Settings</button>
+						<button id="btn-import-trigger">Import Settings</button>
+						<input type="file" id="file-import" accept=".json" style="display: none" />
+					</div>
+					<div id="settings-status" class="status-msg hidden">Settings Saved!</div>
+				</section>
+			</main>
+		</div>
+		<script src="popup.js"></script>
+	</body>
+</html>
