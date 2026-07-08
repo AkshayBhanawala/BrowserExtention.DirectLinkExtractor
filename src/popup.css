@@ -19,6 +19,11 @@
 	--primary-hover: #2563eb;
 }
 
+* {
+	box-sizing: border-box;
+	transition: 0.2s ease-out;
+}
+
 body {
 	margin: 0;
 	padding: 0;
@@ -97,6 +102,22 @@ label {
 	color: var(--text-muted);
 }
 
+.label-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+}
+
+.count-badge {
+	font-size: 0.75rem;
+	background-color: var(--bg-card);
+	color: var(--text-muted);
+	padding: 2px 8px;
+	border-radius: 12px;
+	border: 1px solid var(--border-color);
+	font-weight: 600;
+}
+
 textarea {
 	width: 100%;
 	height: 120px;
@@ -126,6 +147,12 @@ button {
 	cursor: pointer;
 	border: none;
 	transition: background 0.15s;
+}
+
+button:disabled {
+	filter: grayscale(1);
+	color: #9ca3af;
+	cursor: not-allowed;
 }
 
 .control-row {
@@ -179,10 +206,19 @@ button {
 
 .status-msg {
 	text-align: center;
+	font-family: 'Courier New', Courier, monospace;
 	font-size: 0.85rem;
 	font-weight: bold;
 	color: var(--accent);
 	margin: 4px 0;
+}
+
+.output-container {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 14px;
+	margin-top: 20px;
 }
 
 .hidden {

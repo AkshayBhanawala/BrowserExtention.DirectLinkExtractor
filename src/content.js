@@ -152,7 +152,7 @@ async function renderDirectLandingUI(type, url) {
 	console.log(`[Content] Dispatching auto-process bypass for ID: ${fileId}, Type: ${type}`);
 
 	try {
-		const response = await api.runtime.sendMessage({ action: 'processLink', type, url, id: fileId });
+		const response = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url });
 		if (response && response.success) {
 			console.log(`[Content] Auto-process successful. Output: ${response.url}`);
 			const body = generateDownloadPageBody(fileDetails, response.url);

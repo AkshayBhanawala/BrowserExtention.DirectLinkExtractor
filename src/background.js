@@ -41,7 +41,7 @@ api.runtime.onInstalled.addListener(async () => {
 // compatible way to handle async sendResponse in Manifest V3.
 api.runtime.onMessage.addListener(async (message, sender) => {
 	if (message.action === 'processLink') {
-		console.log(`[Background] Processing requested for: ${message.url} [Type: ${message.type}]`);
+		console.log(`[Background] Processing requested for: ${message.url} [Type: ${message.type}]`, message);
 
 		try {
 			const result = await api.storage.local.get(['settings']);

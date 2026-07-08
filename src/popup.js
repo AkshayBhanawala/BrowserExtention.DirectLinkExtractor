@@ -17,7 +17,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 		const data = await api.storage.local.get(['settings', 'popupInput', 'popupOutput']);
 		currentSettings = data.settings || {};
 
-		if (data.popupInput) document.getElementById('input-links').value = data.popupInput;
+		if (data.popupInput) {
+			document.getElementById('input-links').value = data.popupInput;
+			updateInputCount();
+		}
 		if (data.popupOutput) {
 			document.getElementById('output-links').value = data.popupOutput;
 			document.getElementById('output-container').classList.remove('hidden');
@@ -65,6 +68,7 @@ function initEventHandlers() {
 	document.getElementById('tab-settings').addEventListener('click', (e) => switchTab(e, 'panel-settings'));
 
 	document.getElementById('input-links').addEventListener('input', async (e) => {
+		updateInputCount();
 		await api.storage.local.set({ popupInput: e.target.value });
 	});
 	document.getElementById('output-links').addEventListener('input', async (e) => {
@@ -112,6 +116,7 @@ function initEventHandlers() {
 	document.getElementById('btn-clear').addEventListener('click', async () => {
 		console.log('[Popup] Clearing input and output links...');
 		document.getElementById('input-links').value = '';
+		updateInputCount();
 		document.getElementById('output-links').value = '';
 		document.getElementById('output-container').classList.add('hidden');
 		await api.storage.local.set({ popupInput: '', popupOutput: '' });
@@ -169,6 +174,7 @@ function initEventHandlers() {
 
 				const joined = finalLinks.join('\n');
 				inputTx.value = joined;
+				updateInputCount();
 				await api.storage.local.set({ popupInput: joined });
 			} else {
 				console.log('[Popup] No target links found by content script.');
@@ -180,67 +186,97 @@ function initEventHandlers() {
 		}
 	});
 
-	document.getElementById('btn-process').addEventListener('click', async () => {
-		const rawInput = document.getElementById('input-links').value;
-		const lines = rawInput
-			.split('\n')
-			.map((l) => l.trim())
-			.filter((l) => l);
+	document.getElementById('btn-process').addEventListener('click', async (e) => {
+		try {
+			e.target.disabled = true;
 
-		console.log(`[Popup] Starting batch processing for ${lines.length} URLs...`);
-		if (lines.length === 0) return;
+			const rawInput = document.getElementById('input-links').value;
+			const lines = rawInput
+				.split('\n')
+				.map((l) => l.trim())
+				.filter((l) => l);
 
-		const statusEl = document.getElementById('processing-status');
-		statusEl.classList.remove('hidden');
+			console.log(`[Popup] Starting batch processing for ${lines.length} URLs...`);
+			if (lines.length === 0) return;
 
-		const outputs = [];
-		for (let url of lines) {
-			let type = '';
-			let id = null;
-			if (url.includes('fuckingfast.co')) {
-				type = 'fuckingfast';
-			} else if (url.includes('datanodes.to')) {
-				type = 'datanodes';
-				const match = url.match(/datanodes\.to\/([a-zA-Z0-9]+)/);
-				if (match) id = match[1];
-			}
+			const statusEl = document.getElementById('processing-status');
+			statusEl.classList.remove('hidden');
+			const originalStatusText = statusEl.innerText;
 
-			if (type) {
-				console.log(`[Popup] Dispatching API request to background for: ${url}`);
-				const res = await dispatchBypassRequest({ action: 'processLink', type, url, id });
-				if (res.success) {
-					console.log(`[Popup] Successfully bypassed link. Output: ${res.url}`);
-					outputs.push(res.url);
-				} else {
-					console.error(`[Popup] Bypassing failed for ${url}. Error: ${res.error}`);
-					outputs.push(`[FAILED] ${url} -> ${res.error}`);
-				}
-			} else {
-				console.warn(`[Popup] Skipped unsupported URL format: ${url}`);
-				outputs.push(`[SKIPPED] Unsupported Context Format: ${url}`);
-			}
-		}
-
-		console.log('[Popup] Batch processing complete.');
-		statusEl.classList.add('hidden');
-		const outValue = outputs.join('\n');
-		document.getElementById('output-links').value = outValue;
-
-		if (outputs.length > 0) {
-			document.getElementById('output-container').classList.remove('hidden');
-		} else {
+			const outputs = [];
 			document.getElementById('output-container').classList.add('hidden');
-		}
+			document.getElementById('output-links').value = '';
 
-		await api.storage.local.set({ popupOutput: outValue });
+			for (let [i, url] of lines.entries()) {
+				let type = '';
+				let fileId = null;
+				if (url.includes('fuckingfast.co')) {
+					type = 'fuckingfast';
+					const match = url.match(/fuckingfast\.co\/([a-zA-Z0-9]+)/);
+					if (match) fileId = match[1];
+				} else if (url.includes('datanodes.to')) {
+					type = 'datanodes';
+					const match = url.match(/datanodes\.to\/([a-zA-Z0-9]+)/);
+					if (match) fileId = match[1];
+				}
+
+				statusEl.innerText = `Processing File ID: ${fileId} (${i + 1})`;
+
+				if (type) {
+					console.log(`[Popup] Dispatching API request to background for: ${url}`);
+					const res = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url });
+					if (res.success) {
+						console.log(`[Popup] Successfully bypassed link. Output: ${res.url}`);
+						outputs.push(res.url);
+					} else {
+						console.error(`[Popup] Bypassing failed for ${url}. Error: ${res.error}`);
+						outputs.push(`[FAILED] ${url} -> ${res.error}`);
+					}
+				} else {
+					console.warn(`[Popup] Skipped unsupported URL format: ${url}`);
+					outputs.push(`[SKIPPED] Unsupported Context Format: ${url}`);
+				}
+			}
+
+			console.log('[Popup] Batch processing complete.');
+
+			statusEl.classList.add('hidden');
+			statusEl.innerText = originalStatusText;
+
+			const outValue = outputs.join('\n');
+			document.getElementById('output-links').value = outValue;
+
+			if (outputs.length > 0) {
+				document.getElementById('output-container').classList.remove('hidden');
+			} else {
+				document.getElementById('output-container').classList.add('hidden');
+			}
+
+			document.getElementById('btn-copy').scrollIntoView({
+				behavior: 'smooth'
+			});
+			document.getElementById('btn-copy').focus();
+
+			await api.storage.local.set({ popupOutput: outValue });
+		} catch (error) {
+			console.error(`[Popup] Exception occurred while processing Error:`, error);
+		} finally {
+			e.target.disabled = false;
+		}
 	});
 
-	document.getElementById('btn-copy').addEventListener('click', () => {
+	document.getElementById('btn-copy').addEventListener('click', (e) => {
 		console.log('[Popup] Copying results to clipboard.');
+		const orgText = e.target.innerText;
 		const outputTx = document.getElementById('output-links');
 		outputTx.select();
 		document.execCommand('copy');
-		alert('Direct Links copied to clipboard.');
+		e.target.innerText = 'Copied...';
+		e.target.disabled = true;
+		setTimeout(() => {
+			e.target.innerText = orgText;
+			e.target.disabled = false;
+		}, 1500);
 	});
 
 	document.getElementById('btn-export').addEventListener('click', () => {
@@ -283,16 +319,18 @@ function initEventHandlers() {
 	});
 }
 
+function updateInputCount() {
+	const rawInput = document.getElementById("input-links").value;
+	const lines = rawInput.split("\n").map(l => l.trim()).filter(l => l);
+	document.getElementById("input-count").innerText = lines.length;
+}
+
 function switchTab(e, panelId) {
 	document.querySelectorAll('.nav-tabs button').forEach((b) => b.classList.remove('active'));
 	document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active-panel'));
 
 	e.target.classList.add('active');
 	document.getElementById(panelId).classList.add('active-panel');
-}
-
-async function dispatchBypassRequest(payload) {
-	return await api.runtime.sendMessage(payload);
 }
 
 async function saveSettings() {

@@ -40,7 +40,10 @@
 						</div>
 
 						<div class="field-group">
-							<label for="input-links">Input URLs (One per line):</label>
+							<div class="label-row">
+								<label for="input-links">Input URLs (One per line):</label>
+								<span id="input-count" class="count-badge">0</span>
+							</div>
 							<textarea
 								id="input-links"
 								placeholder="Paste link collection here...&#10;https://fuckingfast.co/...&#10;https://datanodes.to/..."
@@ -55,8 +58,7 @@
 
 						<div
 							id="output-container"
-							class="hidden"
-							style="display: flex; flex-direction: column; gap: 14px; justify-content: center"
+							class="output-container hidden"
 						>
 							<div class="field-group">
 								<label for="output-links">Generated Direct Links:</label>
