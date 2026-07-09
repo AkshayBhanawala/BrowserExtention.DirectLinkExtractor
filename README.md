@@ -46,8 +46,13 @@ To get the extension, you can either clone or download this repository; or go to
 4. Select the folder containing this extension's source code - folder containing the `manifest.json` file.
 5. Pin the extension to your toolbar for easy access!
 
-[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif){ style="display: block; margin: 0 auto" }](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.Chrome.mp4)
+<p align="center">
 
+[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.Chrome.mp4)
+
+<a href="https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.Chrome.mp4" target="_new"><img src="./docs/vid/InstallationAsDev.Chrome.gif" alt="Demo - Installation as Developer in Chrome" /></a>
+
+</p>
 
 ### [For Mozilla Firefox](https://google.com/search?q=Adding+extension+zip+in+Firefox):
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
