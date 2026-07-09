@@ -46,9 +46,7 @@ To get the extension, you can either clone or download this repository; or go to
 4. Select the folder containing this extension's source code - folder containing the `manifest.json` file.
 5. Pin the extension to your toolbar for easy access!
 
-[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4)
-
-<video controls src="https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4"></video>
+[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.Chrome.mp4)
 
 
 ### [For Mozilla Firefox](https://google.com/search?q=Adding+extension+zip+in+Firefox):
@@ -57,7 +55,7 @@ To get the extension, you can either clone or download this repository; or go to
 3. Navigate to the extension folder and select the `manifest.json` file.
 4. *Note: Firefox removes temporary add-ons when the browser closes. To make it permanent, you must zip the files and sign the add-on via the Mozilla Developer Hub.*
 
-[![Demo - Installation as Developer in FireFox](./docs/vid/InstallationAsDev.FireFox.gif)](./docs/vid/InstallationAsDev.FireFox.mp4)
+[![Demo - Installation as Developer in FireFox](./docs/vid/InstallationAsDev.FireFox.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4)
 
 ---
 
@@ -71,7 +69,7 @@ To get the extension, you can either clone or download this repository; or go to
 * Wait a little while until the processing completes in the background. Processing time is proportional with the number of links.
 * The extension will securely communicate with the file hosts in the background and output the direct download URLs in the bottom text area. Click **Copy Output Links** to grab them.
 
-[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.MultiDownloadLinks.gif)](./docs/vid/Usage.MultiDownloadLinks.mp4)
+[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.MultiDownloadLinks.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/Usage.MultiDownloadLinks.mp4)
 
 
 ### 2. Single Download Page
@@ -80,7 +78,7 @@ To get the extension, you can either clone or download this repository; or go to
 * Click **GET DIRECT LINK**.
 * The extension will communicate with the host, wipe out the site's ads and timers, and replace the page with a massive, centered **Download Now** button.
 
-[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.SingleDownloadPage.gif)](./docs/vid/Usage.SingleDownloadPage.mp4)
+[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.SingleDownloadPage.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/Usage.SingleDownloadPage.mp4)
 
 
 ---
