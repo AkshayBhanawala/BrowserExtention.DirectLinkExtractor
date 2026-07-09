@@ -48,7 +48,7 @@ To get the extension, you can either clone or download this repository; or go to
 
 [![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4)
 
-<video controls src="https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4" title="Demo - Installation as Developer in Chrome" poster="./docs/vid/InstallationAsDev.Chrome.gif"></video>
+<video controls src="https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4" />
 
 
 
