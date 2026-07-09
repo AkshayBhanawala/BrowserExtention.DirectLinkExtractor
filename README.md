@@ -46,7 +46,9 @@ To get the extension, you can either clone or download this repository; or go to
 4. Select the folder containing this extension's source code - folder containing the `manifest.json` file.
 5. Pin the extension to your toolbar for easy access!
 
-[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](./docs/vid/InstallationAsDev.Chrome.mp4)
+[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4)
+
+<video controls src="https://akshaybhanawala.github.io/BrowserExtention.DirectLinkExtractor/docs/vid/InstallationAsDev.FireFox.mp4" title="Demo - Installation as Developer in Chrome" poster="./docs/vid/InstallationAsDev.Chrome.gif"></video>
 
 
 
