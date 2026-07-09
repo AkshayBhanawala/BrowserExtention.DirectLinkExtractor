@@ -46,7 +46,7 @@ To get the extension, you can either clone or download this repository; or go to
 4. Select the folder containing this extension's source code - folder containing the `manifest.json` file.
 5. Pin the extension to your toolbar for easy access!
 
-./docs/vid/InstallationAsDev.Chrome.mp4
+[![Demo - Installation as Developer in Chrome](./docs/vid/InstallationAsDev.Chrome.gif)](./docs/vid/InstallationAsDev.Chrome.mp4)
 
 
 
@@ -56,13 +56,13 @@ To get the extension, you can either clone or download this repository; or go to
 3. Navigate to the extension folder and select the `manifest.json` file.
 4. *Note: Firefox removes temporary add-ons when the browser closes. To make it permanent, you must zip the files and sign the add-on via the Mozilla Developer Hub.*
 
-[](./docs/vid/InstallationAsDev.FireFox.mp4)
+[![Demo - Installation as Developer in FireFox](./docs/vid/InstallationAsDev.FireFox.gif)](./docs/vid/InstallationAsDev.FireFox.mp4)
 
 ---
 
 ## 🛠️ How to Use
 
-### 1. Batch Link Processing
+### 1. Multi/Batch Links
 * Click the extension icon to open the popup.
 * Paste your target links into the **Input URLs** box (one per line).
 * *Alternatively:* Click **Scrape Page Links** to automatically pull all supported URLs from the webpage you are currently viewing.
@@ -70,15 +70,17 @@ To get the extension, you can either clone or download this repository; or go to
 * Wait a little while until the processing completes in the background. Processing time is proportional with the number of links.
 * The extension will securely communicate with the file hosts in the background and output the direct download URLs in the bottom text area. Click **Copy Output Links** to grab them.
 
-(./docs/vid/Usage.MultiDownloadLinks.mp4)
+[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.MultiDownloadLinks.gif)](./docs/vid/Usage.MultiDownloadLinks.mp4)
 
-### 2. Direct Page Bypass
+
+### 2. Single Download Page
 * Navigate to any file page on `fuckingfast.co` or `datanodes.to`.
 * Click the extension icon. The UI will adapt automatically.
 * Click **GET DIRECT LINK**.
 * The extension will communicate with the host, wipe out the site's ads and timers, and replace the page with a massive, centered **Download Now** button.
 
-[./docs/vid/Usage.SingleDownloadPage.mp4]
+[![Demo - Usage - Multi/Batch Links](./docs/vid/Usage.SingleDownloadPage.gif)](./docs/vid/Usage.SingleDownloadPage.mp4)
+
 
 ---
 
