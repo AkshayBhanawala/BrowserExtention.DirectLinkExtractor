@@ -46,9 +46,7 @@ To get the extension, you can either clone or download this repository; or go to
 4. Select the folder containing this extension's source code - folder containing the `manifest.json` file.
 5. Pin the extension to your toolbar for easy access!
 
-<video controls poster="./docs/vid/InstallationAsDev.Chrome.gif" width="640" height="360">
-  <source src="./docs/vid/InstallationAsDev.Chrome.webm" type="video/webm">
-  Your browser does not support the video tag.
+<video src="./docs/vid/InstallationAsDev.Chrome.webm" controls poster="./docs/vid/InstallationAsDev.Chrome.gif" width="100%">
 </video>
 
 
@@ -59,9 +57,7 @@ To get the extension, you can either clone or download this repository; or go to
 3. Navigate to the extension folder and select the `manifest.json` file.
 4. *Note: Firefox removes temporary add-ons when the browser closes. To make it permanent, you must zip the files and sign the add-on via the Mozilla Developer Hub.*
 
-<video controls poster="./docs/vid/InstallationAsDev.FireFox.gif" width="640" height="360">
-  <source src="./docs/vid/InstallationAsDev.FireFox.webm" type="video/webm">
-  Your browser does not support the video tag.
+<video src="./docs/vid/InstallationAsDev.FireFox.webm" controls poster="./docs/vid/InstallationAsDev.FireFox.gif" width="100%">
 </video>
 ---
 
@@ -75,9 +71,7 @@ To get the extension, you can either clone or download this repository; or go to
 * Wait a little while until the processing completes in the background. Processing time is proportional with the number of links.
 * The extension will securely communicate with the file hosts in the background and output the direct download URLs in the bottom text area. Click **Copy Output Links** to grab them.
 
-<video controls poster="./docs/vid/Usage.MultiDownloadLinks.gif" width="640" height="360">
-  <source src="./docs/vid/Usage.MultiDownloadLinks.webm" type="video/webm">
-  Your browser does not support the video tag.
+<video src="./docs/vid/Usage.MultiDownloadLinks.webm" controls poster="./docs/vid/Usage.MultiDownloadLinks.gif" width="100%">
 </video>
 
 ### 2. Direct Page Bypass
@@ -86,9 +80,7 @@ To get the extension, you can either clone or download this repository; or go to
 * Click **GET DIRECT LINK**.
 * The extension will communicate with the host, wipe out the site's ads and timers, and replace the page with a massive, centered **Download Now** button.
 
-<video controls poster="./docs/vid/Usage.SingleDownloadPage.gif" width="640" height="360">
-  <source src="./docs/vid/Usage.SingleDownloadPage.webm" type="video/webm">
-  Your browser does not support the video tag.
+<video src="./docs/vid/Usage.SingleDownloadPage.webm" controls poster="./docs/vid/Usage.SingleDownloadPage.gif" width="100%">
 </video>
 
 ---
