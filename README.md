@@ -57,8 +57,9 @@ To get the extension, you can either clone or download this repository; or go to
 3. Navigate to the extension folder and select the `manifest.json` file.
 4. *Note: Firefox removes temporary add-ons when the browser closes. To make it permanent, you must zip the files and sign the add-on via the Mozilla Developer Hub.*
 
-<video src="./docs/vid/InstallationAsDev.FireFox.webm" controls poster="./docs/vid/InstallationAsDev.FireFox.gif" width="100%">
+<video src="./docs/vid/InstallationAsDev.FireFox.webm" controls width="100%">
 </video>
+
 ---
 
 ## 🛠️ How to Use
