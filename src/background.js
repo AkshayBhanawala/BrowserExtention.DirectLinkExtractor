@@ -117,7 +117,7 @@ async function handleDataNodes(fileId, config) {
 	try {
 		json = JSON.parse(text);
 	} catch (e) {
-		throw new Error('Failed to parse Datanodes response as JSON');
+		throw new Error('Failed to parse DataNodes response as JSON');
 	}
 
 	if (!json.url) throw new Error('No download URL returned in JSON payload');

@@ -1,7 +1,7 @@
 {
 	"name": "browser-extension-direct-link-extractor",
 	"description": "Browser Extension - Extracts and generates direct download links for fuckingfast.co and datanodes.to.",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"type": "module",
 	"scripts": {
 		"clean": "shx rm -rf dist build",

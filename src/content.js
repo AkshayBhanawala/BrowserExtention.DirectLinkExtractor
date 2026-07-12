@@ -162,8 +162,8 @@ async function renderDirectLandingUI(type, url) {
 			throw new Error(response ? response.error : 'Unknown background failure');
 		}
 	} catch (err) {
-		console.error(`[Content] Auto-process failed. Context:`, response);
-		const errorMsg = `Error generating link: ${response ? response.error : 'Unknown background failure'}`;
+		console.error(`[Content] Auto-process failed. Context:`, err);
+		const errorMsg = `Error generating link: ${err?.message}`;
 		alert(errorMsg);
 	}
 }
