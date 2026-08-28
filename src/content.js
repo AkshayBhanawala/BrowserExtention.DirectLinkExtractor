@@ -54,16 +54,36 @@ function saveFileDetails() {
 		const fileId = fileActions.getAttribute('code');
 		console.log('[Content] fileId:', fileId);
 
+		const fileLink = fileActions.getAttribute('link');
+		console.log('[Content] fileLink:', fileLink);
+
 		const scanCard = document.body.querySelector('div#scanCard');
 		console.log('[Content] scanCard:', scanCard, scanCard?.dataset);
 
-		const fileName = scanCard?.dataset?.scanFile || fileActions.getAttribute('data-scan-file');
+		const fileName =
+			scanCard?.dataset?.scanFile || fileActions.getAttribute('data-scan-file') || fileLink.replace(/.*\//, '');
 		console.log('[Content] fileName:', fileName);
 
-		const fileSize = scanCard?.dataset?.scanSize || fileActions.getAttribute('data-scan-size');
+		const fileSize =
+			scanCard?.dataset?.scanSize ||
+			fileActions.getAttribute('data-scan-size') ||
+			document.querySelector(`div.container.contentWrap h4+div+div span:first-child`)?.textContent;
 		console.log('[Content] fileSize:', fileSize);
 
-		const fileDetails = { fileId, fileName, fileSize };
+		const downloadCountdown = document.body.querySelector('download-countdown');
+		console.log('[Content] downloadCountdown:', downloadCountdown);
+		// downloadCountdown?.setAttribute('premium-method', 'false');
+		// downloadCountdown?.setAttribute(':detect-adblock', 'false');
+		// downloadCountdown?.setAttribute(':has-captcha', 'false');
+		// downloadCountdown?.setAttribute(':has-countdown', 'false');
+		// downloadCountdown?.removeAttribute('captcha-html');
+		const rand = downloadCountdown.getAttribute('rand');
+		console.log('[Content] rand:', rand);
+
+		const dlToken = downloadCountdown.getAttribute('dl-token');
+		console.log('[Content] dlToken:', dlToken);
+
+		const fileDetails = { fileId, rand, dlToken, fileName, fileSize, rand };
 		window.fileDetails = fileDetails;
 	}
 
@@ -148,16 +168,37 @@ async function renderDirectLandingUI(type, url) {
 
 	const fileDetails = window.fileDetails;
 	const fileId = fileDetails.fileId;
+	let cfTurnstileResponse = '';
+
+	showToast('Fetching Direct Download Link, Please Wait...');
 
 	console.log(`[Content] Dispatching auto-process bypass for ID: ${fileId}, Type: ${type}`);
 
 	try {
-		const response = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url });
+		const cookiesResp = (await api.runtime.sendMessage({ action: 'getCookies', type }))?.value || '';
+		console.log(`[Content] Cookies: ${cookiesResp}`);
+
+		if (!(type === `fuckingfast` && cookiesResp?.includes('dlpass='))) {
+			const getter_cfTurnstileResponse = () => document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
+			await waitForPredicate(
+				getter_cfTurnstileResponse,
+				{ type: 'CLOUDFRONT TURNSTILE', name: 'Response Value' },
+				{ checkIntervalInMs: 10, silentExit: true, timeoutInSeconds: 10 },
+			);
+			cfTurnstileResponse = getter_cfTurnstileResponse();
+		}
+
+		const response = await api.runtime.sendMessage({
+			action: 'processLink',
+			type,
+			url,
+			...fileDetails,
+			cfTurnstileResponse,
+		});
 		if (response && response.success) {
 			console.log(`[Content] Auto-process successful. Output: ${response.url}`);
 			const body = generateDownloadPageBody(fileDetails, response.url);
-			document.querySelectorAll('style, script').forEach((e) => e.remove());
-			document.body.replaceWith(body);
+			replaceEntireDocument(body.outerHTML);
 		} else {
 			throw new Error(response ? response.error : 'Unknown background failure');
 		}
@@ -165,6 +206,8 @@ async function renderDirectLandingUI(type, url) {
 		console.error(`[Content] Auto-process failed. Context:`, err);
 		const errorMsg = `Error generating link: ${err?.message}`;
 		alert(errorMsg);
+	} finally {
+		removeToast();
 	}
 }
 
@@ -285,4 +328,126 @@ function generateDownloadPageBody(fileDetails, directLinkUrl) {
 	body.appendChild(container);
 
 	return body;
+}
+
+/**
+ * @typedef WaitForPredicateIntervalOptions
+ * @property {number?} [timeoutInSeconds]
+ * @property {number?} [checkIntervalInMs]
+ * @property {boolean?} [silentExit]
+ *
+ * @param {function(): (any)} predicateFunction A function that returns any `truthy`/`falsy` value
+ * @param {{type: string, name: string}} consoleInfo
+ * @param {WaitForPredicateIntervalOptions?} [intervalOptions]
+ * @returns
+ */
+async function waitForPredicate(
+	predicateFunction,
+	consoleInfo,
+	{ timeoutInSeconds, checkIntervalInMs, silentExit } = {
+		timeoutInSeconds: 1,
+		checkIntervalInMs: 50,
+		silentExit: true,
+	},
+) {
+	timeoutInSeconds = timeoutInSeconds || 1;
+	checkIntervalInMs = checkIntervalInMs || 50;
+	silentExit = silentExit || true;
+
+	const timeoutInMs = timeoutInSeconds * 1000;
+	let isTimedOut = false;
+	const timer = setTimeout(() => (isTimedOut = true), timeoutInMs);
+	while (!(await predicateFunction()) && !isTimedOut) {
+		console.log(`[${consoleInfo.type}] Waiting for ${consoleInfo.name}`, await predicateFunction());
+		await waitForMs(checkIntervalInMs);
+	}
+	clearTimeout(timer);
+	if (!(await predicateFunction())) {
+		const error = `[${consoleInfo.type}] ${consoleInfo.name} did not appear within ${timeoutInSeconds} seconds`;
+		if (!silentExit) {
+			alert(error);
+		}
+		console.log(error, 'isTimedOut:', isTimedOut);
+		return false;
+	}
+	isTimedOut = false;
+	console.log(`[${consoleInfo.type}]`, `${consoleInfo.name} found:`, await predicateFunction());
+	return true;
+}
+
+async function waitForMs(ms) {
+	await new Promise((resolve, reject) => setTimeout(() => resolve(), ms));
+}
+
+function replaceEntireDocument(newHTMLString) {
+	document.open('text/html', 'replace');
+	document.write(newHTMLString);
+	document.close();
+	document.body.innerHTML = document.body.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+}
+
+function showToast(message) {
+	const existing = document.getElementById('ext-status-toast');
+	if (existing) existing.remove();
+
+	const toast = document.createElement('div');
+	toast.id = 'ext-status-toast';
+	Object.assign(toast.style, {
+		position: 'fixed',
+		display: 'flex',
+		flexDirection: 'row',
+		justifyContent: 'center',
+		alignItems: 'center',
+		gap: '10px',
+		top: '20px',
+		left: '50%',
+		transform: 'translateX(-50%)',
+		backgroundColor: '#1f2937',
+		color: '#ffffff',
+		padding: '10px 10px 10px 5px',
+		border: '1px solid #2ecc71',
+		borderRadius: '6px',
+		zIndex: '999999',
+		fontSize: '14px',
+		fontWeight: '500',
+		boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+		fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+		transition: 'opacity 0.3s ease',
+	});
+
+	const extLogoUrl = api.runtime.getURL('assets/img/icon.svg');
+	const extLogo = document.createElement('img');
+	Object.assign(extLogo.style, {
+		width: '30px',
+		height: '30px',
+	});
+	extLogo.src = extLogoUrl;
+	toast.appendChild(extLogo);
+
+	const msg = document.createElement('span');
+	msg.textContent = message;
+	toast.appendChild(msg);
+
+	const loadingSvg = document.createElement('svg');
+	loadingSvg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="30px" height="30px">
+	<radialGradient id="a4" cx=".66" fx=".66" cy=".3125" fy=".3125" gradientTransform="scale(1.5)">
+		<stop offset="0" stop-color="#2ECC71" stop-opacity="0"></stop>
+		<stop offset=".3" stop-color="#2ECC71" stop-opacity=".3"></stop>
+		<stop offset=".6" stop-color="#2ECC71" stop-opacity=".6"></stop>
+		<stop offset=".8" stop-color="#2ECC71" stop-opacity=".9"></stop>
+		<stop offset="1" stop-color="#2ECC71"></stop>
+	</radialGradient>
+	<circle transform-origin="center" fill="none" stroke="url(#a4)" stroke-width="15" stroke-linecap="round" stroke-dasharray="200 1000" stroke-dashoffset="0" cx="100" cy="100" r="70">
+		<animateTransform type="rotate" attributeName="transform" calcMode="spline" dur="2" values="0;360" keyTimes="0;1" keySplines="0 0 1 1" repeatCount="indefinite"></animateTransform>
+	</circle>
+	<circle transform-origin="center" fill="none" opacity=".2" stroke="#2ECC71" stroke-width="15" stroke-linecap="round" cx="100" cy="100" r="70"></circle>
+</svg>`;
+	toast.appendChild(loadingSvg);
+
+	document.body.appendChild(toast);
+}
+
+function removeToast() {
+	const toast = document.getElementById('ext-status-toast');
+	if (toast) toast.remove();
 }
