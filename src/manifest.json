@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "Direct Link Extractor",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Extracts and generates direct download links for fuckingfast.co and datanodes.to.",
 	"permissions": ["storage", "cookies", "activeTab", "scripting", "tabs"],
 	"host_permissions": ["*://fuckingfast.co/*", "*://datanodes.to/*"],
