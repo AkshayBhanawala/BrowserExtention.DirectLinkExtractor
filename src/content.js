@@ -41,14 +41,30 @@ async function dataNodeBodyObserver() {
 
 function saveFileDetails() {
 	console.log('[Content]:', document.body.outerHTML);
-
-	if (isWebpage_DataNodes()) {
-		forDataNode();
-	} else if (isWebpage_FuckingFast()) {
-		forFuckingFast();
+	try {
+		if (isWebpage_DataNodes()) {
+			return forDataNode();
+		} else if (isWebpage_FuckingFast()) {
+			return forFuckingFast();
+		}
+	} catch (error) {
+		console.error('[Content]:', error)
+		return false;
 	}
 
 	function forDataNode() {
+		const downloadForm = document.querySelector(`#downloadForm`);
+		console.log(`[Content]`, `#downloadForm:`, downloadForm);
+
+		const continueBtn = downloadForm?.querySelector(`button`);
+		console.log(`[Content]`, `continueBtn:`, continueBtn, !!continueBtn);
+
+		if (continueBtn) {
+			console.log(`[Content]`, `continueBtn.disabled?:`, continueBtn.disabled);
+			continueBtn.disabled = false;
+			continueBtn.click();
+			return false;
+		}
 		const fileActions = document.body.querySelector('file-actions');
 		console.log('[Content] fileActions:', fileActions);
 		const fileId = fileActions.getAttribute('code');
@@ -85,6 +101,7 @@ function saveFileDetails() {
 
 		const fileDetails = { fileId, rand, dlToken, fileName, fileSize, rand };
 		window.fileDetails = fileDetails;
+		return true
 	}
 
 	function forFuckingFast() {
@@ -108,13 +125,16 @@ function saveFileDetails() {
 
 		const fileDetails = { fileId, fileName, fileSize };
 		window.fileDetails = fileDetails;
+		return true;
 	}
 }
 
 async function onBodyAvailable() {
 	console.log('[Content] Body is now accessible!');
-	saveFileDetails();
-	await process();
+	const processFurther = saveFileDetails();
+	if (processFurther) {
+		await process();
+	}
 }
 
 async function process(force = false) {
@@ -151,7 +171,7 @@ api.runtime.onMessage.addListener(async (request, sender) => {
 		const extracted = [];
 		for (let a of anchors) {
 			const href = a.href;
-			if (href.includes('fuckingfast.co') || href.includes('datanodes.to')) {
+			if (href.includes('fuckingfast.co') || href.includes('datanodes.to') || href.includes('filekeeper.net')) {
 				extracted.push(href);
 			}
 		}
@@ -178,7 +198,7 @@ async function renderDirectLandingUI(type, url) {
 		const cookiesResp = (await api.runtime.sendMessage({ action: 'getCookies', type }))?.value || '';
 		console.log(`[Content] Cookies: ${cookiesResp}`);
 
-		if (!(type === `fuckingfast` && cookiesResp?.includes('dlpass='))) {
+		if (type === `datanodes` && cookiesResp?.includes('dlpass=')) {
 			const getter_cfTurnstileResponse = () => document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
 			await waitForPredicate(
 				getter_cfTurnstileResponse,
