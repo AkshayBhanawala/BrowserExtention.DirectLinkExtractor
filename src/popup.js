@@ -10,6 +10,10 @@ function isWebpage_FuckingFast(url = '') {
 	return url.includes('fuckingfast.co');
 }
 
+function isWebpage_FileKeeper(url = '') {
+	return url.includes('filekeeper.net');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
 	console.log('[Popup] Initializing Extension UI...');
 
@@ -39,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		const tabs = await api.tabs.query({ active: true, currentWindow: true });
 		if (tabs[0] && tabs[0].url) {
 			const url = tabs[0].url;
-			if (isWebpage_DataNodes(url) || isWebpage_FuckingFast(url)) {
+			if (isWebpage_DataNodes(url) || isWebpage_FuckingFast(url) || isWebpage_FileKeeper(url)) {
 				console.log(`[Popup] Target hosting site detected in active window: ${url}`);
 				document.getElementById('direct-page-container').classList.remove('hidden');
 				document.getElementById('standard-extractor-container').style.display = 'none';
@@ -218,13 +222,27 @@ function initEventHandlers() {
 					type = 'datanodes';
 					const match = url.match(/datanodes\.to\/([a-zA-Z0-9]+)/);
 					if (match) fileId = match[1];
+				} else if (url.includes('filekeeper.net')) {
+					type = 'filekeeper';
+					const match = url.match(/filekeeper\.net\/([a-zA-Z0-9]+)/);
+					if (match) fileId = match[1];
 				}
 
 				statusEl.innerText = `Processing File ID: ${fileId} (${i + 1})`;
 
 				if (type) {
+					console.log(`[Popup] Getting cfTurnstileResponse for: ${url}`);
+					const { value: cfTurnstileResponse, error: cfTurnstileResponseError } = await api.tabs.sendMessage(
+						tabs[0].id,
+						{ action: 'getCfTurnstileResponse', url },
+					);
+					if (cfTurnstileResponseError) {
+						console.error(`[Popup] cfTurnstileResponse Error: ${cfTurnstileResponseError}`);
+						outputs.push(`[FAILED] ${url} -> ${cfTurnstileResponseError}`);
+						continue;
+					}
 					console.log(`[Popup] Dispatching API request to background for: ${url}`);
-					const res = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url });
+					const res = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url, cfTurnstileResponse });
 					if (res.success) {
 						console.log(`[Popup] Successfully bypassed link. Output: ${res.url}`);
 						outputs.push(res.url);
@@ -253,7 +271,7 @@ function initEventHandlers() {
 			}
 
 			document.getElementById('btn-copy').scrollIntoView({
-				behavior: 'smooth'
+				behavior: 'smooth',
 			});
 			document.getElementById('btn-copy').focus();
 
@@ -320,9 +338,12 @@ function initEventHandlers() {
 }
 
 function updateInputCount() {
-	const rawInput = document.getElementById("input-links").value;
-	const lines = rawInput.split("\n").map(l => l.trim()).filter(l => l);
-	document.getElementById("input-count").innerText = lines.length;
+	const rawInput = document.getElementById('input-links').value;
+	const lines = rawInput
+		.split('\n')
+		.map((l) => l.trim())
+		.filter((l) => l);
+	document.getElementById('input-count').innerText = lines.length;
 }
 
 function switchTab(e, panelId) {

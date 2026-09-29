@@ -22,7 +22,51 @@ const DEFAULT_SETTINGS = {
 			g_captch__a: '1',
 		},
 	},
+	filekeeper: {
+		targetUrl: 'https://filekeeper.net/download',
+		formData: {
+			op: 'download2',
+			referer: 'https://filekeeper.net/download',
+			rand: '',
+			method_free: '',
+			method_premium: 'Premium Download >>',
+			down_direct: '1',
+		},
+	},
 };
+
+/**
+ * Recursively merges `defaults` into `target`.
+ * - Only fills in keys that are missing from `target`.
+ * - If both values are plain objects, recurses into them.
+ * - Never overwrites existing values in `target`.
+ * @param {object} target  The existing settings (mutated in-place).
+ * @param {object} defaults The default settings to backfill from.
+ * @returns {object} The mutated `target`.
+ */
+function deepMerge(target, defaults) {
+	for (const key of Object.keys(defaults)) {
+		if (!(key in target)) {
+			target[key] = defaults[key];
+		} else if (
+			typeof defaults[key] === 'object' &&
+			defaults[key] !== null &&
+			!Array.isArray(defaults[key]) &&
+			typeof target[key] === 'object' &&
+			target[key] !== null &&
+			!Array.isArray(target[key])
+		) {
+			deepMerge(target[key], defaults[key]);
+		}
+	}
+	return target;
+}
+
+async function getSettings() {
+	const result = await api.storage.local.get(['settings']);
+	const settings = deepMerge(result.settings || {}, DEFAULT_SETTINGS);
+	return settings;
+}
 
 api.runtime.onInstalled.addListener(async () => {
 	console.log('[Background] Extension Installed/Updated. Initializing Storage...');
@@ -31,6 +75,10 @@ api.runtime.onInstalled.addListener(async () => {
 		if (!result.settings) {
 			await api.storage.local.set({ settings: DEFAULT_SETTINGS });
 			console.log('[Background] Default configurations populated.');
+		} else {
+			const merged = deepMerge(Object.assign({}, result.settings), DEFAULT_SETTINGS);
+			await api.storage.local.set({ settings: merged });
+			console.log('[Background] Settings deep-merged with latest defaults.');
 		}
 	} catch (err) {
 		console.error('[Background] Failed to initialize storage:', err);
@@ -46,8 +94,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 		console.log(`[Background] Processing requested for: ${message.url} [Type: ${message.type}]`);
 
 		try {
-			const result = await api.storage.local.get(['settings']);
-			const config = result.settings || DEFAULT_SETTINGS;
+			const config = await getSettings();
 
 			let fileId = message.fileId;
 			if (!fileId) throw new Error('No file ID found.');
@@ -57,30 +104,39 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 
 			let directLink = '';
 			if (message.type === 'fuckingfast') {
-				console.log(`[Background] fuckingfast File ID: ${fileId}`);
-
-				directLink = await handleFuckingFast({ fileId, cfTurnstileResponse }, config.fuckingfast);
-			} else if (message.type === 'datanodes') {
-				console.log(`[Background] Datanodes File ID: ${fileId}`);
+				console.log(`[Background] [${message.type}] File ID: ${fileId}`);
+				directLink = await handleFuckingFast({ type: message.type, fileId, cfTurnstileResponse }, config.fuckingfast);
+			} else if (message.type === 'datanodes' || message.type === 'filekeeper') {
+				const configKey = message.type;
+				console.log(`[Background] [${configKey}] File ID: ${fileId}`);
 
 				const rand = message.rand;
-				console.log(`[Background] Datanodes rand: ${rand}`);
+				console.log(`[Background] [${configKey}] rand: ${rand}`);
 
 				const dlToken = message.dlToken;
-				console.log(`[Background] Datanodes dlToken: ${dlToken}`);
+				console.log(`[Background] [${configKey}] dlToken: ${dlToken}`);
 
+				const maxRetryCount = 20;
 				let retryCount = 0;
-				while (retryCount < 10) {
+				while (retryCount < maxRetryCount) {
 					try {
-						directLink = await handleDataNodes({ fileId, rand, dlToken, cfTurnstileResponse }, config.datanodes);
+						directLink = await handleDataNodes(
+							{ type: message.type, fileId, rand, dlToken, cfTurnstileResponse },
+							config[configKey],
+						);
+						console.log(`[Background] [${configKey}] Direct Link:`, directLink);
 						break;
 					} catch (error) {
+						console.log(`[Background] [${configKey}] error:`, error);
 						if (error.message === `HTML`) {
-							await waitForMs(500);
 							retryCount++;
-						} else {
-							throw error;
+							if (retryCount < maxRetryCount) {
+								await waitForMs(500);
+								console.log(`[Background] [${configKey}] retryCount:`, retryCount);
+								continue;
+							}
 						}
+						throw error;
 					}
 				}
 			}
@@ -97,7 +153,8 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 	} else if (message.action === 'getCookies') {
 		console.log(`[Background] GetCookies requested for: ${message.type}`);
 
-		const domain = message.type === `fuckingfast` ? `fuckingfast.co` : `datanodes.to`;
+		const domainMap = { fuckingfast: 'fuckingfast.co', datanodes: 'datanodes.to', filekeeper: 'filekeeper.net' };
+		const domain = domainMap[message.type] || message.type;
 		console.log(`[Background] domain: ${domain}`);
 
 		const cookiesString = await getCookiesStringForTab(sender.tab);
@@ -110,7 +167,105 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 	}
 });
 
-async function handleFuckingFast({ fileId, cfTurnstileResponse }, config) {
+/**
+ * Promise-based HTTP request using fetch.
+ * Manually retrieves and attaches cookies for the target URL since service
+ * workers don't reliably include them on cross-origin requests.
+ * When `redirect` is `'manual'`, uses `webRequest.onBeforeRedirect` to
+ * intercept the 302 status and Location header before the browser follows
+ * the redirect (fetch auto-follows redirects and cannot expose them).
+ * @param {string} method  HTTP method (e.g. 'GET', 'POST')
+ * @param {string} url
+ * @param {Object<string, string>} headers
+ * @param {FormData|null} formData
+ * @param {{ redirect?: 'follow' | 'manual' }} [options]
+ * @returns {Promise<{status: number, responseText: string, responseURL: string, getResponseHeader: (name: string) => string|null}>}
+ */
+async function httpRequest(method, url, headers = {}, formData = null, { redirect = 'follow' } = {}) {
+	// Manually attach cookies — service workers cannot rely on
+	// credentials:'include' for cross-origin website cookies.
+	const requestHeaders = { ...headers };
+	try {
+		const cookies = await api.cookies.getAll({ url });
+		const cookieString = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+		if (cookieString) {
+			requestHeaders['Cookie'] = cookieString;
+			console.log(`[httpRequest] Attached ${cookies.length} cookie(s) for ${url}`);
+		}
+	} catch (e) {
+		console.warn(`[httpRequest] Failed to retrieve cookies for ${url}:`, e);
+	}
+
+	if (redirect === 'manual') {
+		return new Promise((resolve, reject) => {
+			let redirectCaptured = false;
+			const controller = new AbortController();
+
+			const onRedirect = (details) => {
+				if (details.url !== url) return;
+				redirectCaptured = true;
+				api.webRequest.onBeforeRedirect.removeListener(onRedirect);
+				controller.abort(); // Stop the request from following the redirect
+
+				resolve({
+					status: details.statusCode,
+					responseText: '',
+					responseURL: details.redirectUrl,
+					getResponseHeader: (name) => {
+						const header = (details.responseHeaders || []).find((h) => h.name.toLowerCase() === name.toLowerCase());
+						return header?.value || null;
+					},
+				});
+			};
+
+			api.webRequest.onBeforeRedirect.addListener(onRedirect, { urls: ['<all_urls>'] }, ['responseHeaders']);
+
+			// Fire the actual request — if a redirect happens,
+			// onBeforeRedirect resolves the promise and aborts this fetch.
+			fetch(url, {
+				method,
+				headers: new Headers(requestHeaders),
+				body: formData,
+				credentials: 'include',
+				signal: controller.signal,
+			})
+				.then(async (response) => {
+					// No redirect happened — return the normal response
+					if (!redirectCaptured) {
+						api.webRequest.onBeforeRedirect.removeListener(onRedirect);
+						resolve({
+							status: response.status,
+							responseText: await response.text().catch(() => ''),
+							responseURL: response.url,
+							getResponseHeader: (name) => response.headers.get(name),
+						});
+					}
+				})
+				.catch((err) => {
+					if (!redirectCaptured) {
+						api.webRequest.onBeforeRedirect.removeListener(onRedirect);
+						reject(err);
+					}
+				});
+		});
+	}
+
+	const response = await fetch(url, {
+		method,
+		headers: new Headers(requestHeaders),
+		body: formData,
+		credentials: 'include',
+	});
+
+	return {
+		status: response.status,
+		responseText: await response.text().catch(() => ''),
+		responseURL: response.url,
+		getResponseHeader: (name) => response.headers.get(name),
+	};
+}
+
+async function handleFuckingFast({ type, fileId, cfTurnstileResponse }, config) {
 	const target = config.targetUrl.replace('{fileId}', fileId);
 	const headers = {
 		...(config.headers || {}),
@@ -122,27 +277,22 @@ async function handleFuckingFast({ fileId, cfTurnstileResponse }, config) {
 		formData.append('cf-turnstile-response', cfTurnstileResponse);
 	}
 
-	console.log(`[Background] FuckingFast API Target: ${target}`);
-	console.log(`[Background] FuckingFast Headers:`, headers);
+	console.log(`[Background] [${type}] API Target: ${target}`);
+	console.log(`[Background] [${type}] Headers:`, headers);
 
-	const response = await fetch(target, {
-		method: 'POST',
-		headers: headers,
-		body: formData,
-		credentials: `include`,
-	});
+	const response = await httpRequest('POST', target, headers, formData);
 
-	console.log(`[Background] FuckingFast Response Status: ${response.status}`);
-	const redirectUrl = response.headers.get('hx-redirect');
+	console.log(`[Background] [${type}] Response Status: ${response.status}`);
+	const redirectUrl = response.getResponseHeader('hx-redirect');
 
 	if (!redirectUrl) {
-		console.error(`[Background] FuckingFast missing hx-redirect in response headers.`);
+		console.error(`[Background] [${type}] missing hx-redirect in response headers.`);
 		throw new Error('hx-redirect header missing from response');
 	}
 	return redirectUrl;
 }
 
-async function handleDataNodes({ fileId, rand, dlToken, cfTurnstileResponse }, config) {
+async function handleDataNodes({ type, fileId, rand, dlToken, cfTurnstileResponse }, config) {
 	const headers = { ...(config.headers || {}) };
 
 	const formData = new FormData();
@@ -156,20 +306,23 @@ async function handleDataNodes({ fileId, rand, dlToken, cfTurnstileResponse }, c
 		formData.append(key, value);
 	}
 
-	console.log(`[Background] Datanodes API Target: ${config.targetUrl}`);
-	console.log(`[Background] Datanodes FormData configured for ID: ${fileId}`);
-	console.log(`[Background] Datanodes Headers:`, headers);
+	console.log(`[Background] [${type}] API Target: ${config.targetUrl}`);
+	console.log(`[Background] [${type}] FormData configured for ID: ${fileId}`);
+	console.log(`[Background] [${type}] Headers:`, headers);
 
-	const response = await fetch(config.targetUrl, {
-		method: 'POST',
-		body: formData,
-		credentials: `include`,
+	const response = await httpRequest('POST', config.targetUrl, headers, formData, {
+		redirect: type === 'filekeeper' ? 'manual' : 'follow',
 	});
 
-	console.log(`[Background] Datanodes Response Status: ${response.status}`);
+	console.log(`[Background] [${type}] Response Status: ${response.status}`);
 
-	const text = await response.text();
-	console.log(`[Background] Datanodes Raw Response Body:`, text);
+	if (response.status === 302 && response.responseURL) {
+		console.log(`[Background] [${type}] Response URL:`, response.responseURL);
+		return decodeURIComponent(response.responseURL);
+	}
+
+	const text = response.responseText;
+	console.log(`[Background] [${type}] Raw Response Body:`, text);
 
 	if (text.includes('<html>')) {
 		throw new Error('HTML');
@@ -223,14 +376,14 @@ async function getCookiesForTab(tab, withPartitionCondition = true) {
 		domain: tabURL.host,
 		partitionKey: { topLevelSite: tabURL.origin },
 	});
-	cookiesWithPartition = cookiesWithPartition.filter(e => e.expirationDate < Date.now() - 1000);
+	cookiesWithPartition = cookiesWithPartition.filter((e) => e.expirationDate < Date.now() - 1000);
 	console.log(`[getCookiesForTab()]`, `cookiesWithPartition:`, cookiesWithPartition);
 
 	let cookiesWithoutPartition = await api.cookies.getAll({
 		storeId: tabCookieStoreId,
 		domain: tabURL.host,
 	});
-	cookiesWithoutPartition = cookiesWithoutPartition.filter(e => e.expirationDate < Date.now() - 1000);
+	cookiesWithoutPartition = cookiesWithoutPartition.filter((e) => e.expirationDate < Date.now() - 1000);
 	console.log(`[getCookiesForTab()]`, `cookiesWithoutPartition:`, cookiesWithoutPartition);
 
 	const allCookies = [...cookiesWithPartition, ...cookiesWithoutPartition];

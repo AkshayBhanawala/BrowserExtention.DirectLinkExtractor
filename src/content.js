@@ -1,7 +1,7 @@
 const api = typeof browser !== 'undefined' ? browser : chrome;
 
 // Check if the body exists immediately
-if (isWebpage_DataNodes()) {
+if (isWebpage_DataNodes() || isWebpage_FileKeeper()) {
 	dataNodeBodyObserver();
 } else if (isWebpage_FuckingFast()) {
 	document.addEventListener('DOMContentLoaded', async (event) => {
@@ -15,6 +15,10 @@ function isWebpage_DataNodes() {
 
 function isWebpage_FuckingFast() {
 	return location.host.includes('fuckingfast.co');
+}
+
+function isWebpage_FileKeeper() {
+	return location.host.includes('filekeeper.net');
 }
 
 async function dataNodeBodyObserver() {
@@ -42,13 +46,13 @@ async function dataNodeBodyObserver() {
 function saveFileDetails() {
 	console.log('[Content]:', document.body.outerHTML);
 	try {
-		if (isWebpage_DataNodes()) {
+		if (isWebpage_DataNodes() || isWebpage_FileKeeper()) {
 			return forDataNode();
 		} else if (isWebpage_FuckingFast()) {
 			return forFuckingFast();
 		}
 	} catch (error) {
-		console.error('[Content]:', error)
+		console.error('[Content]:', error);
 		return false;
 	}
 
@@ -83,10 +87,11 @@ function saveFileDetails() {
 		const fileSize =
 			scanCard?.dataset?.scanSize ||
 			fileActions.getAttribute('data-scan-size') ||
-			document.querySelector(`div.container.contentWrap h4+div+div span:first-child`)?.textContent;
+			document.querySelector(`div.container.contentWrap h4+div+div span:first-child`)?.textContent ||
+			findByTagAndClassAndText(document, `p`, undefined, `File Size`, true)?.nextElementSibling?.textContent?.trim();
 		console.log('[Content] fileSize:', fileSize);
 
-		const downloadCountdown = document.body.querySelector('download-countdown');
+		const downloadCountdown = document.body.querySelector('download-countdown, #download-countdown');
 		console.log('[Content] downloadCountdown:', downloadCountdown);
 		// downloadCountdown?.setAttribute('premium-method', 'false');
 		// downloadCountdown?.setAttribute(':detect-adblock', 'false');
@@ -101,7 +106,7 @@ function saveFileDetails() {
 
 		const fileDetails = { fileId, rand, dlToken, fileName, fileSize, rand };
 		window.fileDetails = fileDetails;
-		return true
+		return true;
 	}
 
 	function forFuckingFast() {
@@ -146,6 +151,7 @@ async function process(force = false) {
 	const currentUrl = window.location.href;
 	const isDataNodes = isWebpage_DataNodes();
 	const isFuckingFast = isWebpage_FuckingFast();
+	const isFileKeeper = isWebpage_FileKeeper();
 
 	try {
 		const data = await api.storage.local.get(['settings']);
@@ -155,9 +161,10 @@ async function process(force = false) {
 			console.log(`[Content] Loaded Settings. Auto-process: ${settings.autoProcessDirect}`);
 		}
 
-		if ((isDataNodes || isFuckingFast) && (settings.autoProcessDirect || force)) {
+		if ((isDataNodes || isFuckingFast || isFileKeeper) && (settings.autoProcessDirect || force)) {
 			console.log(`[Content] Direct Hosting site detected: ${currentUrl}. Modifying Layout...`);
-			renderDirectLandingUI(isFuckingFast ? 'fuckingfast' : 'datanodes', currentUrl);
+			const type = isFuckingFast ? 'fuckingfast' : isFileKeeper ? 'filekeeper' : 'datanodes';
+			renderDirectLandingUI(type, currentUrl);
 		}
 	} catch (err) {
 		console.error('[Content] Failed to load settings:', err);
@@ -180,8 +187,24 @@ api.runtime.onMessage.addListener(async (request, sender) => {
 	} else if (request.action === 'forceProcessDirect') {
 		await process(true);
 		return Promise.resolve({ success: true });
+	} else if (request.action === 'cfTurnstileResponse') {
+		return getCfTurnstileResponse();
 	}
 });
+
+async function getCfTurnstileResponse() {
+	const getter_cfTurnstileResponse = () => document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
+	const success = await waitForPredicate(
+		getter_cfTurnstileResponse,
+		{ type: 'CLOUDFRONT TURNSTILE', name: 'Response Value' },
+		{ checkIntervalInMs: 10, silentExit: true, timeoutInSeconds: 10 },
+	);
+	if (success) {
+		return { value: getter_cfTurnstileResponse() };
+	} else {
+		return { error: 'cfTurnstileResponse not found' };
+	}
+}
 
 async function renderDirectLandingUI(type, url) {
 	console.log('[Content] window.fileDetails:', window.fileDetails);
@@ -196,16 +219,12 @@ async function renderDirectLandingUI(type, url) {
 
 	try {
 		const cookiesResp = (await api.runtime.sendMessage({ action: 'getCookies', type }))?.value || '';
-		console.log(`[Content] Cookies: ${cookiesResp}`);
+		console.log(`[Content] Cookies:`, cookiesResp);
 
-		if (type === `datanodes` && cookiesResp?.includes('dlpass=')) {
-			const getter_cfTurnstileResponse = () => document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
-			await waitForPredicate(
-				getter_cfTurnstileResponse,
-				{ type: 'CLOUDFRONT TURNSTILE', name: 'Response Value' },
-				{ checkIntervalInMs: 10, silentExit: true, timeoutInSeconds: 10 },
-			);
-			cfTurnstileResponse = getter_cfTurnstileResponse();
+		const turnstileScript = document.querySelector(`script[src*="turnstile"]`);
+		console.log(`[Content] CF Turnstile Script:`, turnstileScript);
+		if (turnstileScript && (type === `datanodes` || type === `filekeeper`) && !cookiesResp?.includes('dlpass=')) {
+			cfTurnstileResponse = (await getCfTurnstileResponse())?.value;
 		}
 
 		const response = await api.runtime.sendMessage({
@@ -470,4 +489,50 @@ function showToast(message) {
 function removeToast() {
 	const toast = document.getElementById('ext-status-toast');
 	if (toast) toast.remove();
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {string} targetTagName
+ * @param {string} targetClass
+ * @param {string} targetText
+ * @returns
+ */
+function findAllByTagAndClassAndText(root, targetTagName, targetClass, targetText, textCompareInclude = false) {
+	// console.log(`findAllByTagAndClassAndText()`, root, targetTagName, targetClass, targetText, textCompareInclude);
+	const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+		/**
+		 * @param {HTMLElement} node
+		 */
+		acceptNode(node) {
+			const isClassRegex = targetClass instanceof RegExp;
+			const isTextRegex = targetText instanceof RegExp;
+			const isOfType = targetTagName ? node.tagName === targetTagName.toUpperCase() : true;
+			const hasClass = targetClass ? node.className.includes(targetClass) : true;
+			const hasText = targetText
+				? textCompareInclude
+					? node.textContent.trim().toLowerCase().includes(targetText.toLowerCase())
+					: node.textContent.trim().toLowerCase() === targetText.toLowerCase()
+				: true;
+			return isOfType && hasClass && hasText ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+		},
+	});
+
+	const matches = [];
+	let currentNode;
+	while ((currentNode = walker.nextNode())) {
+		matches.push(currentNode);
+	}
+	return matches;
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {string} targetTagName
+ * @param {string} targetClass
+ * @param {string} targetText
+ * @returns
+ */
+function findByTagAndClassAndText(root, targetTagName, targetClass, targetText, textCompareInclude = false) {
+	return findAllByTagAndClassAndText(root, targetTagName, targetClass, targetText, textCompareInclude).at(0);
 }

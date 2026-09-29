@@ -2,7 +2,7 @@
 
 ![Direct Link Extractor](./docs/img/Logo.128.png)
 
-A powerful, cross-browser Manifest V3 extension designed to bypass intermediate pages and extract direct download links for **[fuckingfast.co](https://fuckingfast.co)** and **[datanodes.to](https://datanodes.to)**.
+A powerful, cross-browser Manifest V3 extension designed to bypass intermediate pages and extract direct download links for **[fuckingfast.co](https://fuckingfast.co)**, **[datanodes.to](https://datanodes.to)**, **[filekeeper.net](https://filekeeper.net)**.
 
 Built with pure vanilla JavaScript, it features a robust background-processing engine to handle cross-origin requests, a page scraper, and a fully customizable API payload configuration.
 
@@ -77,7 +77,7 @@ To get the extension, you can either clone or download this repository; or go to
 </p>
 
 ### 2. Single Download Page
-* Navigate to any file page on `fuckingfast.co` or `datanodes.to`.
+* Navigate to any file page on `fuckingfast.co` or `datanodes.to` or `filekeeper.net`.
 * Click the extension icon. The UI will adapt automatically.
 * Click **GET DIRECT LINK**.
 * The extension will communicate with the host, wipe out the site's ads and timers, and replace the page with a massive, centered **Download Now** button.
@@ -91,7 +91,7 @@ To get the extension, you can either clone or download this repository; or go to
 
 ## ⚙️ Advanced Configuration Engine
 
-If `fuckingfast.co` or `datanodes.to` update their backend logic (e.g., adding a new required form field or header), you can fix the extension directly from the UI without rewriting the JavaScript.
+If `fuckingfast.co` or `datanodes.to` or `filekeeper.net` update their backend logic (e.g., adding a new required form field or header), you can fix the extension directly from the UI without rewriting the JavaScript.
 
 1. Open the extension and click the **Settings** tab.
 2. Edit the **Raw Engine Configuration (JSON Editor)**.
@@ -115,6 +115,17 @@ If `fuckingfast.co` or `datanodes.to` update their backend logic (e.g., adding a
 			"method_free": "",
 			"method_premium": "Premium Download >>",
 			"g_captch__a": "1"
+		}
+	},
+	"filekeeper": {
+		"targetUrl": "https://filekeeper.net/download",
+		"formData": {
+			"op": "download2",
+			"referer": "https://filekeeper.net/download",
+			"rand": "",
+			"method_free": "",
+			"method_premium": "Premium Download >>",
+			"down_direct": "1"
 		}
 	}
 }
