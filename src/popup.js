@@ -347,7 +347,7 @@ function initEventHandlers() {
 
 					if (extractionError) {
 						console.error(`[Popup] Extraction Error: ${extractionError}`);
-						addOutputItem(url, false, extractionError);
+						addOutputItem(url, false, extractionError, true);
 						removeFromInput(url);
 						saveOutputsToStorage();
 						continue;
@@ -364,18 +364,18 @@ function initEventHandlers() {
 					});
 					if (res.success) {
 						console.log(`[Popup] Successfully bypassed link. Output: ${res.url}`);
-						addOutputItem(res.url, true);
+						addOutputItem(res.url, true, '', true);
 						removeFromInput(url);
 						saveOutputsToStorage();
 					} else {
 						console.error(`[Popup] Bypassing failed for ${url}. Error: ${res.error}`);
-						addOutputItem(url, false, res.error);
+						addOutputItem(url, false, res.error, true);
 						removeFromInput(url);
 						saveOutputsToStorage();
 					}
 				} else {
 					console.warn(`[Popup] Skipped unsupported URL format: ${url}`);
-					addOutputItem(url, false, 'Unsupported Context Format');
+					addOutputItem(url, false, 'Unsupported Context Format', true);
 					removeFromInput(url);
 					saveOutputsToStorage();
 				}
@@ -530,7 +530,7 @@ function removeFromInput(url) {
 	api.storage.local.set({ popupInput: inputLinks.value });
 }
 
-function addOutputItem(url, isSuccess, errorMsg = '') {
+function addOutputItem(url, isSuccess, errorMsg = '', shouldScroll = false) {
 	const outputList = document.getElementById('output-list');
 	const itemDiv = document.createElement('div');
 	itemDiv.classList.add('output-item');
@@ -580,6 +580,14 @@ function addOutputItem(url, isSuccess, errorMsg = '') {
 	itemDiv.appendChild(linkSpan);
 	itemDiv.appendChild(btn);
 	outputList.appendChild(itemDiv);
+
+	if (shouldScroll) {
+		itemDiv.scrollIntoView({
+			behavior: 'smooth',
+			block: 'center',
+			inline: 'center',
+		});
+	}
 }
 
 function saveOutputsToStorage() {

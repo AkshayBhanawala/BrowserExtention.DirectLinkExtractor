@@ -457,10 +457,9 @@ async function waitForMs(ms) {
 }
 
 function replaceEntireDocument(newHTMLString) {
-	document.open('text/html', 'replace');
-	document.write(newHTMLString);
-	document.close();
-	document.body.innerHTML = document.body.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+	const newDoc = new DOMParser().parseFromString(newHTMLString, 'text/html');
+	document.documentElement.replaceWith(document.adoptNode(newDoc.documentElement));
+	document.body.setHTMLUnsafe(document.body.innerHTML.replace(/<br\s*\/?>/gi, '\n'));
 }
 
 function showToast(message) {

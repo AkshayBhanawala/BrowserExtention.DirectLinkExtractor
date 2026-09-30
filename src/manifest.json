@@ -1,11 +1,11 @@
 {
 	"manifest_version": 3,
 	"name": "Direct Link Extractor",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"description": "Extracts and generates direct download links for fuckingfast.co, datanodes.to and filekeeper.net.",
 	"permissions": ["storage", "cookies", "activeTab", "scripting", "tabs", "webRequest"],
 	"host_permissions": ["*://fuckingfast.co/*", "*://datanodes.to/*", "*://filekeeper.net/*"],
-	"incognito": "split",
+	"incognito": "spanning",
 	"browser_specific_settings": {
 		"gecko": {
 			"id": "direct-link-extractor@TH3-AZ.com",
