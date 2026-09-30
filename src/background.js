@@ -85,12 +85,21 @@ api.runtime.onInstalled.addListener(async () => {
 	}
 });
 
+const hosterTurnstileTokens = {};
+
 // Using `return true` and an async IIFE is the only 100% cross-browser
 // compatible way to handle async sendResponse in Manifest V3.
 api.runtime.onMessage.addListener(async (message, sender) => {
 	console.log(`[Background] onMessageListener:`, `message:`, message, `sender:`, sender);
 
-	if (message.action === 'processLink') {
+	if (message.action === 'checkCachedToken') {
+		const cached = hosterTurnstileTokens[message.type];
+		if (cached && Date.now() - cached.time < 150000) {
+			// 2.5 mins
+			return { hasToken: true };
+		}
+		return { hasToken: false };
+	} else if (message.action === 'processLink') {
 		console.log(`[Background] Processing requested for: ${message.url} [Type: ${message.type}]`);
 
 		try {
@@ -99,7 +108,16 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 			let fileId = message.fileId;
 			if (!fileId) throw new Error('No file ID found.');
 
-			const cfTurnstileResponse = message.cfTurnstileResponse;
+			let cfTurnstileResponse = message.cfTurnstileResponse;
+			if (cfTurnstileResponse) {
+				hosterTurnstileTokens[message.type] = { token: cfTurnstileResponse, time: Date.now() };
+			} else {
+				const cached = hosterTurnstileTokens[message.type];
+				if (cached && Date.now() - cached.time < 150000) {
+					cfTurnstileResponse = cached.token;
+					console.log(`[Background] Reusing cached Turnstile token for ${message.type}`);
+				}
+			}
 			console.log(`[Background] cfTurnstileResponse: ${cfTurnstileResponse}`);
 
 			let directLink = '';
@@ -131,7 +149,7 @@ api.runtime.onMessage.addListener(async (message, sender) => {
 						if (error.message === `HTML`) {
 							retryCount++;
 							if (retryCount < maxRetryCount) {
-								await waitForMs(500);
+								await waitForMs(1000);
 								console.log(`[Background] [${configKey}] retryCount:`, retryCount);
 								continue;
 							}
@@ -322,7 +340,7 @@ async function handleDataNodes({ type, fileId, rand, dlToken, cfTurnstileRespons
 	}
 
 	const text = response.responseText;
-	console.log(`[Background] [${type}] Raw Response Body:`, text);
+	console.log(`[Background] [${type}] Raw Response Body:`, `${text.trim().slice(0, 6)}...`);
 
 	if (text.includes('<html>')) {
 		throw new Error('HTML');

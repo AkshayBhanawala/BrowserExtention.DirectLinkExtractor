@@ -26,8 +26,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 			updateInputCount();
 		}
 		if (data.popupOutput) {
-			document.getElementById('output-links').value = data.popupOutput;
-			document.getElementById('output-container').classList.remove('hidden');
+			try {
+				const parsedOutputs = JSON.parse(data.popupOutput);
+				for (const item of parsedOutputs) {
+					addOutputItem(item.url, item.success, item.error);
+				}
+				if (parsedOutputs.length > 0) {
+					document.getElementById('output-container').classList.remove('hidden');
+				}
+			} catch (e) {
+				const lines = data.popupOutput.split('\n').filter((l) => l.trim());
+				for (const l of lines) {
+					if (l.startsWith('[FAILED]') || l.startsWith('[SKIPPED]')) {
+						let cleanUrl = l.replace('[FAILED] ', '').replace('[SKIPPED] ', '');
+						cleanUrl = cleanUrl.split(' -> ')[0].trim();
+						addOutputItem(cleanUrl, false, 'Failed (Legacy state)');
+					} else {
+						addOutputItem(l, true);
+					}
+				}
+				if (lines.length > 0) {
+					document.getElementById('output-container').classList.remove('hidden');
+				}
+			}
+		}
+
+		if (data.autoStartBatch) {
+			await api.storage.local.remove('autoStartBatch');
+			setTimeout(() => {
+				document.getElementById('btn-process').click();
+			}, 500);
 		}
 
 		// Initialize append scrape state (default to true if undefined)
@@ -38,6 +66,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 		applyUiSettings();
 		initEventHandlers();
+
+		if (window.location.hash === '#panel-settings') {
+			document.getElementById('tab-settings').click();
+		}
 
 		// Check if current tab is a target hosting site using Promises
 		const tabs = await api.tabs.query({ active: true, currentWindow: true });
@@ -74,9 +106,6 @@ function initEventHandlers() {
 	document.getElementById('input-links').addEventListener('input', async (e) => {
 		updateInputCount();
 		await api.storage.local.set({ popupInput: e.target.value });
-	});
-	document.getElementById('output-links').addEventListener('input', async (e) => {
-		await api.storage.local.set({ popupOutput: e.target.value });
 	});
 
 	document.getElementById('cfg-auto-direct').addEventListener('change', async (e) => {
@@ -190,10 +219,14 @@ function initEventHandlers() {
 		}
 	});
 
+	let stopRequested = false;
+	document.getElementById('btn-stop-process').addEventListener('click', () => {
+		stopRequested = true;
+		document.getElementById('btn-stop-process').innerText = 'Stopping...';
+	});
+
 	document.getElementById('btn-process').addEventListener('click', async (e) => {
 		try {
-			e.target.disabled = true;
-
 			const rawInput = document.getElementById('input-links').value;
 			const lines = rawInput
 				.split('\n')
@@ -203,15 +236,36 @@ function initEventHandlers() {
 			console.log(`[Popup] Starting batch processing for ${lines.length} URLs...`);
 			if (lines.length === 0) return;
 
+			const tab = await new Promise((resolve) => api.tabs.getCurrent(resolve));
+			if (!tab) {
+				console.log('[Popup] Running in popup. Opening as a tab to prevent closing during processing.');
+				await api.storage.local.set({ popupInput: rawInput, autoStartBatch: true });
+				await api.tabs.create({ url: api.runtime.getURL('popup.html') });
+				window.close();
+				return;
+			}
+
+			e.target.disabled = true;
+			e.target.classList.add('hidden');
+			document.getElementById('btn-stop-process').classList.remove('hidden');
+			document.getElementById('btn-stop-process').innerText = 'Stop Processing';
+			stopRequested = false;
+
 			const statusEl = document.getElementById('processing-status');
 			statusEl.classList.remove('hidden');
-			const originalStatusText = statusEl.innerText;
+			const statusTextEl = document.getElementById('processing-status-text');
+			const originalStatusText = statusTextEl.innerText;
 
-			const outputs = [];
-			document.getElementById('output-container').classList.add('hidden');
-			document.getElementById('output-links').value = '';
+			document.getElementById('output-container').classList.remove('hidden');
+
+			const tabs = await api.tabs.query({ active: true, currentWindow: true });
 
 			for (let [i, url] of lines.entries()) {
+				if (stopRequested) {
+					console.log('[Popup] User stopped the batch process.');
+					statusTextEl.innerText = 'Processing stopped.';
+					break;
+				}
 				let type = '';
 				let fileId = null;
 				if (url.includes('fuckingfast.co')) {
@@ -228,54 +282,127 @@ function initEventHandlers() {
 					if (match) fileId = match[1];
 				}
 
-				statusEl.innerText = `Processing File ID: ${fileId} (${i + 1})`;
+				statusTextEl.innerText = `Processing File ID: ${fileId} (${i + 1})`;
 
 				if (type) {
-					console.log(`[Popup] Getting cfTurnstileResponse for: ${url}`);
-					const { value: cfTurnstileResponse, error: cfTurnstileResponseError } = await api.tabs.sendMessage(
-						tabs[0].id,
-						{ action: 'getCfTurnstileResponse', url },
-					);
-					if (cfTurnstileResponseError) {
-						console.error(`[Popup] cfTurnstileResponse Error: ${cfTurnstileResponseError}`);
-						outputs.push(`[FAILED] ${url} -> ${cfTurnstileResponseError}`);
+					console.log(`[Popup] Getting extraction data for: ${url}`);
+					let extractionData = null;
+					let extractionError = null;
+
+					const tokenCheck = await api.runtime.sendMessage({ action: 'checkCachedToken', type });
+					const hasCachedToken = tokenCheck && tokenCheck.hasToken;
+
+					try {
+						extractionData = await new Promise((resolve, reject) => {
+							const processUrl = new URL(url);
+							processUrl.hash = 'background-extract';
+							api.tabs.create({ url: processUrl.toString(), active: !hasCachedToken }, (extractionTab) => {
+								const tabId = extractionTab.id;
+								let isResolved = false;
+
+								const cleanup = () => {
+									if (isResolved) return;
+									isResolved = true;
+									api.tabs.remove(tabId).catch(() => {});
+									if (tab && tab.id) {
+										api.tabs.update(tab.id, { active: true }).catch(() => {});
+									}
+								};
+
+								const attempt = () => {
+									if (isResolved) return;
+									api.tabs
+										.sendMessage(tabId, { action: 'getExtractionData', type, skipTurnstile: hasCachedToken })
+										.then((response) => {
+											console.log(`[Popup] getExtractionData:`, response);
+											if (response && response.fileDetails) {
+												cleanup();
+												resolve(response);
+											} else if (response && response.error) {
+												cleanup();
+												reject(new Error(response.error));
+											}
+										})
+										.catch((e) => {
+											// Content script might not be injected yet, retry
+											setTimeout(attempt, 500);
+										});
+								};
+
+								// Start trying to communicate with the content script
+								setTimeout(attempt, 500); // Give the tab a moment to load
+
+								// 15 seconds absolute timeout
+								setTimeout(() => {
+									if (!isResolved) {
+										cleanup();
+										reject(new Error('Timeout waiting for extraction data'));
+									}
+								}, 15000);
+							});
+						});
+					} catch (e) {
+						extractionError = e.message;
+					}
+
+					if (extractionError) {
+						console.error(`[Popup] Extraction Error: ${extractionError}`);
+						addOutputItem(url, false, extractionError);
+						removeFromInput(url);
+						saveOutputsToStorage();
 						continue;
 					}
+
 					console.log(`[Popup] Dispatching API request to background for: ${url}`);
-					const res = await api.runtime.sendMessage({ action: 'processLink', type, fileId, url, cfTurnstileResponse });
+					const res = await api.runtime.sendMessage({
+						action: 'processLink',
+						type,
+						fileId,
+						url,
+						cfTurnstileResponse: extractionData.cfTurnstileResponse,
+						...extractionData.fileDetails,
+					});
 					if (res.success) {
 						console.log(`[Popup] Successfully bypassed link. Output: ${res.url}`);
-						outputs.push(res.url);
+						addOutputItem(res.url, true);
+						removeFromInput(url);
+						saveOutputsToStorage();
 					} else {
 						console.error(`[Popup] Bypassing failed for ${url}. Error: ${res.error}`);
-						outputs.push(`[FAILED] ${url} -> ${res.error}`);
+						addOutputItem(url, false, res.error);
+						removeFromInput(url);
+						saveOutputsToStorage();
 					}
 				} else {
 					console.warn(`[Popup] Skipped unsupported URL format: ${url}`);
-					outputs.push(`[SKIPPED] Unsupported Context Format: ${url}`);
+					addOutputItem(url, false, 'Unsupported Context Format');
+					removeFromInput(url);
+					saveOutputsToStorage();
 				}
 			}
 
 			console.log('[Popup] Batch processing complete.');
 
 			statusEl.classList.add('hidden');
-			statusEl.innerText = originalStatusText;
+			statusTextEl.innerText = originalStatusText;
 
-			const outValue = outputs.join('\n');
-			document.getElementById('output-links').value = outValue;
+			document.getElementById('btn-process').disabled = false;
+			document.getElementById('btn-process').classList.remove('hidden');
+			document.getElementById('btn-stop-process').classList.add('hidden');
 
-			if (outputs.length > 0) {
+			if (document.getElementById('output-list').children.length > 0) {
 				document.getElementById('output-container').classList.remove('hidden');
 			} else {
 				document.getElementById('output-container').classList.add('hidden');
 			}
 
-			document.getElementById('btn-copy').scrollIntoView({
-				behavior: 'smooth',
-			});
-			document.getElementById('btn-copy').focus();
-
-			await api.storage.local.set({ popupOutput: outValue });
+			const copyAllBtn = document.getElementById('btn-copy-all');
+			if (copyAllBtn) {
+				copyAllBtn.scrollIntoView({
+					behavior: 'smooth',
+				});
+				copyAllBtn.focus();
+			}
 		} catch (error) {
 			console.error(`[Popup] Exception occurred while processing Error:`, error);
 		} finally {
@@ -283,18 +410,32 @@ function initEventHandlers() {
 		}
 	});
 
-	document.getElementById('btn-copy').addEventListener('click', (e) => {
-		console.log('[Popup] Copying results to clipboard.');
+	document.getElementById('btn-copy-all').addEventListener('click', async (e) => {
+		console.log('[Popup] Copying all results to clipboard.');
 		const orgText = e.target.innerText;
-		const outputTx = document.getElementById('output-links');
-		outputTx.select();
-		document.execCommand('copy');
-		e.target.innerText = 'Copied...';
+
+		const links = [];
+		document.querySelectorAll('#output-list .output-item-success .output-item-text').forEach((span) => {
+			links.push(span.innerText);
+		});
+
+		if (links.length > 0) {
+			await navigator.clipboard.writeText(links.join('\n'));
+		}
+
+		e.target.innerText = 'Copied!';
 		e.target.disabled = true;
 		setTimeout(() => {
 			e.target.innerText = orgText;
 			e.target.disabled = false;
 		}, 1500);
+	});
+
+	document.getElementById('btn-clear-output').addEventListener('click', async () => {
+		console.log('[Popup] Clearing output list.');
+		document.getElementById('output-list').innerHTML = '';
+		document.getElementById('output-container').classList.add('hidden');
+		await api.storage.local.remove('popupOutput');
 	});
 
 	document.getElementById('btn-export').addEventListener('click', () => {
@@ -306,7 +447,18 @@ function initEventHandlers() {
 		dlAnchor.click();
 	});
 
-	document.getElementById('btn-import-trigger').addEventListener('click', () => {
+	document.getElementById('btn-import-trigger').addEventListener('click', async () => {
+		const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+		const tab = await new Promise((resolve) => api.tabs.getCurrent(resolve));
+
+		// Firefox kills the popup when a file picker opens, Chrome does not.
+		if (isFirefox && !tab) {
+			console.log('[Popup] Running in Firefox popup. Opening as a tab for file import.');
+			await api.tabs.create({ url: api.runtime.getURL('popup.html#panel-settings') });
+			window.close();
+			return;
+		}
+
 		document.getElementById('file-import').click();
 	});
 
@@ -364,4 +516,90 @@ function flashStatus(elementId, msg) {
 	el.innerText = msg;
 	el.classList.remove('hidden');
 	setTimeout(() => el.classList.add('hidden'), 2000);
+}
+
+function removeFromInput(url) {
+	const inputLinks = document.getElementById('input-links');
+	let currentVals = inputLinks.value
+		.split('\n')
+		.map((l) => l.trim())
+		.filter((l) => l);
+	currentVals = currentVals.filter((l) => l !== url);
+	inputLinks.value = currentVals.join('\n');
+	updateInputCount();
+	api.storage.local.set({ popupInput: inputLinks.value });
+}
+
+function addOutputItem(url, isSuccess, errorMsg = '') {
+	const outputList = document.getElementById('output-list');
+	const itemDiv = document.createElement('div');
+	itemDiv.classList.add('output-item');
+	itemDiv.classList.add(isSuccess ? 'output-item-success' : 'output-item-error');
+
+	const linkSpan = document.createElement('span');
+	linkSpan.classList.add('output-item-text');
+	linkSpan.innerText = isSuccess ? url : `Failed: ${url} ${errorMsg ? `(${errorMsg})` : ''}`;
+
+	const btn = document.createElement('button');
+	btn.className = 'secondary-btn';
+	btn.style.padding = '4px 8px';
+	btn.style.whiteSpace = 'nowrap';
+
+	if (isSuccess) {
+		btn.innerText = 'Copy';
+		btn.onclick = () => {
+			navigator.clipboard.writeText(url);
+			btn.innerText = 'Copied!';
+			setTimeout(() => (btn.innerText = 'Copy'), 1500);
+		};
+	} else {
+		btn.innerText = 'Retry';
+		btn.onclick = () => {
+			btn.disabled = true;
+			btn.innerText = 'Link queued for processing';
+
+			const inputLinks = document.getElementById('input-links');
+			const currentVals = inputLinks.value
+				.split('\n')
+				.map((l) => l.trim())
+				.filter((l) => l);
+			if (!currentVals.includes(url)) {
+				currentVals.push(url);
+				inputLinks.value = currentVals.join('\n');
+				updateInputCount();
+				api.storage.local.set({ popupInput: inputLinks.value });
+			}
+
+			setTimeout(() => {
+				itemDiv.remove();
+				saveOutputsToStorage();
+			}, 2000);
+		};
+	}
+
+	itemDiv.appendChild(linkSpan);
+	itemDiv.appendChild(btn);
+	outputList.appendChild(itemDiv);
+}
+
+function saveOutputsToStorage() {
+	const outputList = document.getElementById('output-list');
+	const items = [];
+	for (let item of outputList.children) {
+		const isSuccess = item.classList.contains('output-item-success');
+		const textEl = item.querySelector('.output-item-text');
+		if (!textEl) continue;
+		const text = textEl.innerText;
+		if (isSuccess) {
+			items.push({ url: text, success: true });
+		} else {
+			const match = text.match(/^Failed: (.*?)(?: \((.*)\))?$/);
+			if (match) {
+				items.push({ url: match[1], success: false, error: match[2] || '' });
+			} else {
+				items.push({ url: text, success: false, error: '' });
+			}
+		}
+	}
+	api.storage.local.set({ popupOutput: JSON.stringify(items) });
 }

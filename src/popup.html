@@ -52,17 +52,47 @@
 
 						<div class="control-row">
 							<button id="btn-process" class="primary-btn">Process Collected Links</button>
+							<button
+								id="btn-stop-process"
+								class="secondary-btn hidden"
+								style="background-color: #ef4444; color: white"
+							>
+								Stop Processing
+							</button>
 						</div>
 
-						<div id="processing-status" class="status-msg hidden">Processing links...</div>
+						<div style="font-size: 1rem; color: var(--text-muted); text-align: center; margin-top: -8px">
+							<span style="font-weight: 800">Note:</span> New tabs may open automatically to bypass CloudFlare Turnstile
+							captchas. <br />If not automatically completed, please complete captcha as soon as possible to prevent
+							delay. <br />You can retry if it fails to complete in time.
+						</div>
+
+						<div
+							id="processing-status"
+							class="status-msg hidden"
+							style="display: flex; align-items: center; justify-content: center; gap: 8px"
+						>
+							<div class="loader-spinner"></div>
+							<span id="processing-status-text">Processing links...</span>
+						</div>
 
 						<div id="output-container" class="output-container hidden">
 							<div class="field-group">
-								<label for="output-links">Generated Direct Links:</label>
-								<textarea id="output-links" readonly placeholder="Output links will pop up here..."></textarea>
+								<div class="label-row" style="margin-bottom: 8px">
+									<label>Generated Direct Links:</label>
+									<div style="display: flex; gap: 8px">
+										<button id="btn-clear-output" class="secondary-btn" style="padding: 4px 8px; font-size: 0.8rem">
+											Clear
+										</button>
+										<button id="btn-copy-all" class="secondary-btn" style="padding: 4px 8px; font-size: 0.8rem">
+											Copy All
+										</button>
+									</div>
+								</div>
+								<div id="output-list">
+									<!-- Items injected here -->
+								</div>
 							</div>
-
-							<button id="btn-copy" class="secondary-btn">Copy Output Links</button>
 						</div>
 					</div>
 				</section>

@@ -7,6 +7,7 @@
 	--primary: #2563eb;
 	--primary-hover: #1d4ed8;
 	--accent: #10b981;
+	--darker-bg: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme='dark'] {
@@ -17,6 +18,7 @@
 	--border-color: #374151;
 	--primary: #3b82f6;
 	--primary-hover: #2563eb;
+	--darker-bg: rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -230,4 +232,62 @@ hr {
 	border-top: 1px solid var(--border-color);
 	width: 100%;
 	margin: 8px 0;
+}
+
+#output-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	overflow-y: auto;
+	background: var(--darker-bg);
+	padding: 8px;
+	border-radius: 4px;
+	border: 1px solid var(--border-color);
+}
+
+.output-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 5px 10px;
+	background-color: var(--bg-card);
+	border-radius: 4px;
+	font-size: 0.85rem;
+	word-break: break-all;
+	gap: 8px;
+}
+.output-item .output-item-text {
+	display: inline-block;
+	flex: 1 1 0%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.output-item.output-item-success {
+	border-left: 4px solid #10b981;
+}
+.output-item.output-item-success .output-item-text {
+	color: #10b981;
+}
+
+.output-item.output-item-error {
+	border-left: 4px solid #ef4444;
+}
+.output-item.output-item-error .output-item-text {
+	color: #ef4444;
+}
+
+.loader-spinner {
+	width: 14px;
+	height: 14px;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.75s linear infinite;
+}
+@keyframes spin {
+	100% {
+		transform: rotate(360deg);
+	}
 }

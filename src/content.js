@@ -162,6 +162,10 @@ async function process(force = false) {
 		}
 
 		if ((isDataNodes || isFuckingFast || isFileKeeper) && (settings.autoProcessDirect || force)) {
+			if (window.location.hash.includes('background-extract')) {
+				console.log(`[Content] Background extraction tab detected. Skipping UI modification.`);
+				return;
+			}
 			console.log(`[Content] Direct Hosting site detected: ${currentUrl}. Modifying Layout...`);
 			const type = isFuckingFast ? 'fuckingfast' : isFileKeeper ? 'filekeeper' : 'datanodes';
 			renderDirectLandingUI(type, currentUrl);
@@ -189,11 +193,44 @@ api.runtime.onMessage.addListener(async (request, sender) => {
 		return Promise.resolve({ success: true });
 	} else if (request.action === 'cfTurnstileResponse') {
 		return getCfTurnstileResponse();
+	} else if (request.action === 'getExtractionData') {
+		return getExtractionData(request.type, request.skipTurnstile);
 	}
 });
 
+async function getExtractionData(type, skipTurnstile = false) {
+	await waitForPredicate(
+		() => window.fileDetails,
+		{ type: 'FILE DETAILS', name: 'window.fileDetails' },
+		{ checkIntervalInMs: 100, silentExit: true, timeoutInSeconds: 15 },
+	);
+
+	let cfTurnstileResponse = '';
+	if (type === 'datanodes' || type === 'filekeeper') {
+		const cookiesResp = (await api.runtime.sendMessage({ action: 'getCookies', type }))?.value || '';
+		if (!cookiesResp.includes('dlpass=') && !skipTurnstile) {
+			cfTurnstileResponse = (await getCfTurnstileResponse())?.value || '';
+		}
+	}
+
+	return {
+		fileDetails: window.fileDetails,
+		cfTurnstileResponse: cfTurnstileResponse,
+	};
+}
+
 async function getCfTurnstileResponse() {
-	const getter_cfTurnstileResponse = () => document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
+	const getter_cfTurnstileScript = () => {
+		const s = document.querySelector(`script[src*="turnstile"]`);
+		console.log('[Content] CF Turnstile Script:', s);
+		return s;
+	};
+	const getter_cfTurnstileResponse = () => {
+		const r = getter_cfTurnstileScript() && document.querySelector(`input[name="cf-turnstile-response"]`)?.value;
+		console.log('[Content] CF Turnstile Response:', r);
+		return r;
+	};
+
 	const success = await waitForPredicate(
 		getter_cfTurnstileResponse,
 		{ type: 'CLOUDFRONT TURNSTILE', name: 'Response Value' },
@@ -218,12 +255,13 @@ async function renderDirectLandingUI(type, url) {
 	console.log(`[Content] Dispatching auto-process bypass for ID: ${fileId}, Type: ${type}`);
 
 	try {
+		const tokenCheck = await api.runtime.sendMessage({ action: 'checkCachedToken', type });
+		const hasCachedToken = tokenCheck && tokenCheck.hasToken;
+
 		const cookiesResp = (await api.runtime.sendMessage({ action: 'getCookies', type }))?.value || '';
 		console.log(`[Content] Cookies:`, cookiesResp);
 
-		const turnstileScript = document.querySelector(`script[src*="turnstile"]`);
-		console.log(`[Content] CF Turnstile Script:`, turnstileScript);
-		if (turnstileScript && (type === `datanodes` || type === `filekeeper`) && !cookiesResp?.includes('dlpass=')) {
+		if ((type === `datanodes` || type === `filekeeper`) && !cookiesResp?.includes('dlpass=') && !hasCachedToken) {
 			cfTurnstileResponse = (await getCfTurnstileResponse())?.value;
 		}
 
